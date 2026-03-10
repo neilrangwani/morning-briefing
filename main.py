@@ -165,6 +165,31 @@ def build_context(weather: dict, calendar: dict, newsletters: list[dict]) -> str
     )
 
 
+def send_email(subject: str, body: str) -> None:
+    """Send the briefing via Resend. No-ops if RESEND_API_KEY is not set."""
+    api_key = os.environ.get("RESEND_API_KEY")
+    to_email = os.environ.get("TO_EMAIL")
+    if not api_key or not to_email:
+        return
+
+    import requests as _req
+    resp = _req.post(
+        "https://api.resend.com/emails",
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        json={
+            "from": "Morning Briefing <onboarding@resend.dev>",
+            "to": [to_email],
+            "subject": subject,
+            "text": body,
+        },
+        timeout=15,
+    )
+    if resp.ok:
+        print(f"Email sent to {to_email}")
+    else:
+        print(f"Email failed: {resp.status_code} {resp.text}", file=sys.stderr)
+
+
 def synthesize(context: str) -> str:
     """Call Claude Haiku to produce the morning briefing from the context block."""
     api_key = os.environ.get("ANTHROPIC_API_KEY")
@@ -246,6 +271,9 @@ def main():
     print()
     print(divider)
     print()
+
+    today = datetime.date.today().strftime("%A, %B %-d")
+    send_email(subject=f"Morning Briefing — {today}", body=briefing)
 
 
 if __name__ == "__main__":
