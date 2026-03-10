@@ -1,0 +1,39 @@
+name: Morning Briefing
+
+on:
+  schedule:
+    # 9:00 AM Pacific Time
+    # UTC-7 (DST, Mar–Nov): "0 16 * * *"  ← current
+    # UTC-8 (standard, Nov–Mar): "0 17 * * *"
+    - cron: "0 16 * * *"
+  workflow_dispatch: # also allow manual runs from the GitHub Actions tab
+
+jobs:
+  briefing:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Write Google credentials from secrets
+        run: |
+          echo "$GOOGLE_CREDENTIALS_JSON" > credentials.json
+          echo "$GOOGLE_TOKEN_JSON"        > token.json
+        env:
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+          GOOGLE_TOKEN_JSON: ${{ secrets.GOOGLE_TOKEN_JSON }}
+
+      - name: Run morning briefing
+        run: python main.py
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
