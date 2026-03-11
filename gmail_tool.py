@@ -33,8 +33,13 @@ NEWSLETTERS = [
         "from_match": ["pro rata", "primack"],
         "subject_match": ["pro rata"],
         "interest": (
-            "Extract only VC deals and investments that involve AI companies. "
-            "Skip all other content (earnings, policy, non-AI deals)."
+            "Extract all deals and investments that involve AI companies or AI technology, "
+            "from ANY section of the newsletter (Venture Capital Deals, Private Equity Deals, "
+            "M&A, Liquidity Events, Fundraising, or any other section). "
+            "Include a deal if it explicitly mentions AI, or if the company is clearly an AI company "
+            "(e.g. LLM, machine learning, robotics, autonomous systems, AI infrastructure). "
+            "For each deal, note the section it came from. "
+            "Skip all non-AI content."
         ),
         "include_links": False,
     },
@@ -82,8 +87,8 @@ NEWSLETTERS = [
 ]
 
 # Maximum characters of email body to pass to Claude per newsletter.
-# Keeps token usage predictable; 6000 chars ≈ ~1500 tokens.
-MAX_BODY_CHARS = 6000
+# Haiku has a 200k token context window; 25000 chars ≈ ~6000 tokens.
+MAX_BODY_CHARS = 25000
 
 
 def _matches_newsletter(from_header: str, subject: str, nl: dict) -> bool:
