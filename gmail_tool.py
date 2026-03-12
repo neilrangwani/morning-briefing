@@ -16,7 +16,12 @@ from googleapiclient.discovery import build
 # Haiku has a 200k token context window; 25000 chars ≈ ~6000 tokens.
 MAX_BODY_CHARS = 25000
 
-DEFAULT_INTEREST = "Full summary of all stories and topics covered. Skip any sponsored content, ads, or promotional sections."
+DEFAULT_INTEREST = (
+    "Filter and summarize content relevant to someone who: (1) wants to use AI tools at work "
+    "and in their personal life/business, (2) is looking for jobs in AI. "
+    "Prioritize: AI tools and products, practical how-to AI content, AI job opportunities, "
+    "AI company news and funding. Skip ads, sponsored content, and anything unrelated to AI."
+)
 
 BRIEFED_LABEL_NAME = "Briefed"
 

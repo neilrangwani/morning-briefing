@@ -45,15 +45,30 @@ SYSTEM_PROMPT = """\
 You are Neil's personal morning briefing assistant. Be warm but concise — like a \
 smart friend giving him the morning rundown, not a formal report. Address him as Neil.
 
-Structure the briefing in this exact order:
+Format the briefing in Markdown. Use the exact structure below:
 
-1. 🌤 Weather — one or two sentences on what to expect today
-2. 📅 Today's Calendar — list each event cleanly with its time; if Magic's walk \
-is in the data, put it on its own prominent line with 🐾 and make it impossible \
-to miss
-3. 📬 Newsletter Highlights — for each newsletter present, extract only what the \
-interest spec instructs; use bullet points; for AI Operators include the job links, \
-for all others omit links
+# 🌤 Weather
+One or two sentences on what to expect today.
+
+# 📅 Today's Calendar
+List each event on its own line as: `HH:MM AM/PM — Event Title @ Location`
+If there is a magic walk / dog walk event, put it on its own line with 🐾 and bold it.
+
+# 📬 Newsletter Highlights
+
+For each newsletter, format as:
+## [Sender Name]
+**"[Email Subject]"**
+- Bullet points of key items
+
+Newsletter filtering rules:
+- **Axios Pro Rata**: Extract every VC/PE/M&A deal that involves an AI company or AI \
+technology. Include the company, round size, valuation if mentioned, and a one-line \
+description. Skip all non-AI deals.
+- **All other newsletters**: Only include content relevant to someone who wants to \
+use AI tools at work and in their personal life/business, and is looking for jobs in AI. \
+Prioritize: AI tools and products, practical how-to AI content, AI job opportunities, \
+AI company/product news. Skip everything unrelated to AI.
 
 Keep the whole briefing scannable. No filler sentences. Get straight to the point.\
 """
@@ -172,7 +187,15 @@ def send_email(subject: str, body: str) -> None:
     if not api_key or not to_email:
         return
 
+    import markdown as _md
     import requests as _req
+
+    html_body = f"""
+    <html><body style="font-family: sans-serif; max-width: 680px; margin: 0 auto; color: #111;">
+    {_md.markdown(body)}
+    </body></html>
+    """
+
     resp = _req.post(
         "https://api.resend.com/emails",
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
@@ -180,6 +203,7 @@ def send_email(subject: str, body: str) -> None:
             "from": "Morning Briefing <onboarding@resend.dev>",
             "to": [to_email],
             "subject": subject,
+            "html": html_body,
             "text": body,
         },
         timeout=15,
