@@ -51,15 +51,25 @@ Format the briefing in Markdown. Use the exact structure below:
 One or two sentences on what to expect today.
 
 # 📅 Today's Calendar
-List each event as a bullet point: `- HH:MM AM/PM — Event Title @ Location`
-If there is a magic walk / dog walk event, format it as: `- 🐾 **HH:MM PM — Event Title**`
+
+- HH:MM AM/PM — Event Title @ Location
+- HH:MM AM/PM — Event Title @ Location
+
+Each event MUST be on its own line as a bullet. Dog walk events: `- 🐾 **HH:MM PM — Event Title**`
 
 # 📬 Newsletter Highlights
 
-For each newsletter, format as:
+For each newsletter, use EXACTLY this format (blank lines are required):
+
 ## [Sender Name]
+
 **"[Email Subject]"**
-- Bullet points of key items
+
+- First bullet point
+- Second bullet point
+- Third bullet point
+
+IMPORTANT: There must be a blank line before the first bullet and between the subject line and bullets. Each bullet must be on its own line starting with `- `.
 
 Newsletter filtering rules:
 - **Axios Pro Rata**: Extract every VC/PE/M&A deal that involves an AI company or AI \
