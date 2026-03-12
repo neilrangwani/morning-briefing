@@ -22,13 +22,14 @@ python main.py --dry-run  # mock data, no API calls
 | File | Purpose |
 |---|---|
 | `main.py` | Orchestrator — auth, data gather, Claude call, print |
-| `gmail_tool.py` | Gmail fetch + `NEWSLETTERS` config |
+| `gmail_tool.py` | Gmail fetch by "Newsletter" label |
 | `gcal_tool.py` | Calendar fetch + Magic Walk detection |
 | `weather_tool.py` | IP geolocation (ipapi.co with ip-api.com fallback) + Open-Meteo |
 
 ## Newsletter Config
-Edit the `NEWSLETTERS` list in `gmail_tool.py`.
-Each entry has `from_match`, `subject_match`, `interest`, and `include_links` fields.
+`gmail_tool.py` fetches all emails with the Gmail label **"Newsletter"** from the last 24 hours.
+To include a newsletter, just label it "Newsletter" in Gmail — no code changes needed.
+The default summarization prompt is in `DEFAULT_INTEREST` at the top of `gmail_tool.py`.
 
 ## Magic Walk Detection
 `gcal_tool.py` scans for `"magic walk"` (case-insensitive) in event title or description.

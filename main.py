@@ -22,7 +22,7 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 
 from gcal_tool import fetch_calendar, format_calendar
-from gmail_tool import fetch_newsletters, format_newsletters
+from gmail_tool import fetch_newsletters, format_newsletters, mark_newsletters_briefed
 from weather_tool import fetch_weather, format_weather
 
 load_dotenv()
@@ -32,7 +32,7 @@ load_dotenv()
 # ─────────────────────────────────────────────────────────────────────────────
 
 SCOPES = [
-    "https://www.googleapis.com/auth/gmail.readonly",
+    "https://www.googleapis.com/auth/gmail.modify",
     "https://www.googleapis.com/auth/calendar.readonly",
 ]
 
@@ -161,7 +161,7 @@ def build_context(weather: dict, calendar: dict, newsletters: list[dict]) -> str
         f"Today is {today}.\n\n"
         f"--- WEATHER ---\n{format_weather(weather)}\n\n"
         f"--- CALENDAR ---\n{format_calendar(calendar)}\n\n"
-        f"--- NEWSLETTERS (last 24 hours) ---\n{format_newsletters(newsletters)}"
+        f"--- NEWSLETTERS ---\n{format_newsletters(newsletters)}"
     )
 
 
@@ -271,6 +271,9 @@ def main():
     print()
     print(divider)
     print()
+
+    if not args.dry_run:
+        mark_newsletters_briefed(creds, newsletters)
 
     today = datetime.date.today().strftime("%A, %B %-d")
     send_email(subject=f"Morning Briefing — {today}", body=briefing)

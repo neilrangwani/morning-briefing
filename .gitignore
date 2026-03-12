@@ -3,6 +3,9 @@
 token.json
 credentials.json
 
+# Local run state
+.last_run
+
 # Python
 __pycache__/
 *.py[cod]

@@ -36,30 +36,12 @@ WMO_CODES = {
 }
 
 
-def _get_location() -> dict:
-    """Detect current location via IP geolocation. Tries multiple free services."""
-    # Try ipapi.co first, fall back to ip-api.com if rate-limited
-    for attempt in [
-        ("https://ipapi.co/json/", lambda d: {
-            "latitude": d["latitude"], "longitude": d["longitude"],
-            "city": d.get("city", "Unknown city"), "region": d.get("region", ""),
-        }),
-        ("http://ip-api.com/json/", lambda d: {
-            "latitude": d["lat"], "longitude": d["lon"],
-            "city": d.get("city", "Unknown city"), "region": d.get("regionName", ""),
-        }),
-    ]:
-        url, extract = attempt
-        try:
-            resp = requests.get(url, timeout=10)
-            resp.raise_for_status()
-            data = resp.json()
-            if data.get("status") == "fail":
-                continue
-            return extract(data)
-        except Exception:
-            continue
-    raise RuntimeError("All geolocation services failed")
+LOCATION = {
+    "latitude": 37.7762,
+    "longitude": -122.4338,
+    "city": "San Francisco",
+    "region": "California",
+}
 
 
 def _get_forecast(latitude: float, longitude: float) -> dict:
@@ -90,7 +72,7 @@ def fetch_weather() -> dict:
     Main entry point. Returns a structured weather summary dict:
       city, region, current_temp_f, high_f, low_f, precip_pct, conditions
     """
-    loc = _get_location()
+    loc = LOCATION
     raw = _get_forecast(loc["latitude"], loc["longitude"])
 
     current = raw["current_weather"]

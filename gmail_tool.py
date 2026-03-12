@@ -1,9 +1,9 @@
 """
 gmail_tool.py
 
-Fetches newsletters from Gmail for the last 24 hours.
-Matches against a curated NEWSLETTERS config and returns structured data
-for Claude to summarize.
+Fetches newsletters from Gmail labeled "Newsletter" that haven't been briefed yet.
+After the briefing is generated, call mark_newsletters_briefed() to apply the
+"Briefed" label so they won't be picked up again.
 """
 
 import base64
@@ -12,103 +12,13 @@ import re
 
 from googleapiclient.discovery import build
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Newsletter configuration
-#
-# Each entry:
-#   name          — display name shown in the briefing
-#   from_match    — substrings to match against the From header (case-insensitive, OR logic)
-#   subject_match — substrings to match against Subject (case-insensitive, OR logic)
-#                   If BOTH lists are non-empty, BOTH must have at least one hit.
-#                   If only one list is non-empty, only that one is checked.
-#   interest      — instruction passed to Claude: what to extract from this newsletter
-#   include_links — True = ask Claude to include URLs; False = no links in output
-#
-# To tune matching after first run: check which emails arrive and adjust
-# from_match / subject_match to be more or less specific.
-# ─────────────────────────────────────────────────────────────────────────────
-NEWSLETTERS = [
-    {
-        "name": "Axios Pro Rata",
-        "from_match": ["pro rata", "primack"],
-        "subject_match": ["pro rata"],
-        "interest": (
-            "Extract all deals and investments that involve AI companies or AI technology, "
-            "from ANY section of the newsletter (Venture Capital Deals, Private Equity Deals, "
-            "M&A, Liquidity Events, Fundraising, or any other section). "
-            "Include a deal if it explicitly mentions AI, or if the company is clearly an AI company "
-            "(e.g. LLM, machine learning, robotics, autonomous systems, AI infrastructure). "
-            "For each deal, note the section it came from. "
-            "Skip all non-AI content."
-        ),
-        "include_links": False,
-    },
-    {
-        "name": "Axios San Francisco",
-        "from_match": ["axios"],
-        "subject_match": ["san francisco", "axios sf"],
-        "interest": "Full summary of all stories covered.",
-        "include_links": False,
-    },
-    {
-        "name": "The Rundown AI",
-        "from_match": ["rundown", "therundown"],
-        "subject_match": [],
-        "interest": (
-            "Summarize all non-advertisement articles. "
-            "Skip any sponsored content, ads, or promotional sections."
-        ),
-        "include_links": False,
-    },
-    {
-        "name": "Lenny's Newsletter",
-        "from_match": ["lenny", "lennynewsletter"],
-        "subject_match": [],
-        "interest": "Full summary of the main article or topic covered.",
-        "include_links": False,
-    },
-    {
-        "name": "Ben's Bites",
-        "from_match": ["benbites", "ben's bites", "ben bite"],
-        "subject_match": [],
-        "interest": "Full summary of all stories and tools covered.",
-        "include_links": False,
-    },
-    {
-        "name": "AI Operators by Evan Lee",
-        "from_match": ["evan lee", "ai operators"],
-        "subject_match": [],
-        "interest": (
-            "List every job posting mentioned. "
-            "For each: company name, role title, and the application link."
-        ),
-        "include_links": True,
-    },
-]
-
 # Maximum characters of email body to pass to Claude per newsletter.
 # Haiku has a 200k token context window; 25000 chars ≈ ~6000 tokens.
 MAX_BODY_CHARS = 25000
 
+DEFAULT_INTEREST = "Full summary of all stories and topics covered. Skip any sponsored content, ads, or promotional sections."
 
-def _matches_newsletter(from_header: str, subject: str, nl: dict) -> bool:
-    """Return True if this email matches a newsletter config entry."""
-    from_lower = from_header.lower()
-    subject_lower = subject.lower()
-
-    has_from = bool(nl["from_match"])
-    has_subject = bool(nl["subject_match"])
-
-    from_hit = any(kw in from_lower for kw in nl["from_match"]) if has_from else True
-    subject_hit = any(kw in subject_lower for kw in nl["subject_match"]) if has_subject else True
-
-    if has_from and has_subject:
-        return from_hit and subject_hit
-    elif has_from:
-        return from_hit
-    elif has_subject:
-        return subject_hit
-    return False
+BRIEFED_LABEL_NAME = "Briefed"
 
 
 def _decode_part(part: dict) -> str:
@@ -157,22 +67,50 @@ def _extract_text(payload: dict) -> str:
     return ""
 
 
+def _parse_sender_name(from_header: str) -> str:
+    """Extract display name from a From header, falling back to the email address."""
+    # "Display Name <email@example.com>" → "Display Name"
+    match = re.match(r'^"?([^"<]+)"?\s*<', from_header)
+    if match:
+        return match.group(1).strip()
+    # bare email address
+    return from_header.strip()
+
+
+def _get_or_create_briefed_label(service) -> str:
+    """Return the label ID for BRIEFED_LABEL_NAME, creating it if it doesn't exist."""
+    labels = service.users().labels().list(userId="me").execute().get("labels", [])
+    for label in labels:
+        if label["name"].lower() == BRIEFED_LABEL_NAME.lower():
+            return label["id"]
+
+    new_label = (
+        service.users()
+        .labels()
+        .create(userId="me", body={"name": BRIEFED_LABEL_NAME})
+        .execute()
+    )
+    return new_label["id"]
+
+
 def fetch_newsletters(credentials) -> list[dict]:
     """
-    Fetch emails from the last 24 hours and return matched newsletters.
+    Fetch emails labeled "Newsletter" but not "Briefed" from the last 36 hours.
+
+    The 36-hour window is a safety net; the "Briefed" label is the primary
+    deduplication mechanism.
 
     Args:
         credentials: Google OAuth2 credentials object (built in main.py)
 
     Returns:
-        List of dicts: {name, subject, body_snippet, interest, include_links}
-        Only newsletters that had a matching email are included.
+        List of dicts: {message_id, name, subject, body_snippet, interest, include_links}
     """
     service = build("gmail", "v1", credentials=credentials)
 
-    # Gmail's `after:` operator accepts YYYY/MM/DD (searches since start of that day)
-    yesterday = (datetime.date.today() - datetime.timedelta(days=1)).strftime("%Y/%m/%d")
-    query = f"after:{yesterday}"
+    since = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=36)
+    since_ts = int(since.timestamp())
+    query = f"label:Newsletter -label:{BRIEFED_LABEL_NAME} after:{since_ts}"
 
     result = (
         service.users()
@@ -182,8 +120,6 @@ def fetch_newsletters(credentials) -> list[dict]:
     )
     messages = result.get("messages", [])
 
-    # Track which newsletters we've already matched to avoid duplicates
-    matched_names: set[str] = set()
     found: list[dict] = []
 
     for msg_stub in messages:
@@ -201,34 +137,43 @@ def fetch_newsletters(credentials) -> list[dict]:
         from_header = headers.get("From", "")
         subject = headers.get("Subject", "")
 
-        for nl in NEWSLETTERS:
-            if nl["name"] in matched_names:
-                continue  # already found this newsletter today
+        body = _extract_text(msg.get("payload", {}))
+        body = " ".join(body.split())[:MAX_BODY_CHARS]
 
-            if _matches_newsletter(from_header, subject, nl):
-                body = _extract_text(msg.get("payload", {}))
-                # Normalize whitespace and truncate
-                body = " ".join(body.split())[:MAX_BODY_CHARS]
-
-                found.append(
-                    {
-                        "name": nl["name"],
-                        "subject": subject,
-                        "body_snippet": body,
-                        "interest": nl["interest"],
-                        "include_links": nl["include_links"],
-                    }
-                )
-                matched_names.add(nl["name"])
-                break  # don't match same email to multiple newsletters
+        found.append(
+            {
+                "message_id": msg_stub["id"],
+                "name": _parse_sender_name(from_header),
+                "subject": subject,
+                "body_snippet": body,
+                "interest": DEFAULT_INTEREST,
+                "include_links": False,
+            }
+        )
 
     return found
+
+
+def mark_newsletters_briefed(credentials, newsletters: list[dict]) -> None:
+    """Apply the 'Briefed' label to all fetched newsletters."""
+    if not newsletters:
+        return
+
+    service = build("gmail", "v1", credentials=credentials)
+    label_id = _get_or_create_briefed_label(service)
+
+    for nl in newsletters:
+        service.users().messages().modify(
+            userId="me",
+            id=nl["message_id"],
+            body={"addLabelIds": [label_id]},
+        ).execute()
 
 
 def format_newsletters(newsletters: list[dict]) -> str:
     """Format newsletter list into a structured block for the Claude prompt."""
     if not newsletters:
-        return "No newsletters found in the last 24 hours."
+        return "No new newsletters found."
 
     sections = []
     for nl in newsletters:
