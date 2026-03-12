@@ -51,8 +51,8 @@ Format the briefing in Markdown. Use the exact structure below:
 One or two sentences on what to expect today.
 
 # 📅 Today's Calendar
-List each event on its own line as: `HH:MM AM/PM — Event Title @ Location`
-If there is a magic walk / dog walk event, put it on its own line with 🐾 and bold it.
+List each event as a bullet point: `- HH:MM AM/PM — Event Title @ Location`
+If there is a magic walk / dog walk event, format it as: `- 🐾 **HH:MM PM — Event Title**`
 
 # 📬 Newsletter Highlights
 
