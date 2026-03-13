@@ -6,8 +6,11 @@ Receives a pre-built Google OAuth2 credentials object from main.py.
 """
 
 import datetime
+import zoneinfo
 
 from googleapiclient.discovery import build
+
+TIMEZONE = zoneinfo.ZoneInfo("America/Los_Angeles")
 
 MAGIC_WALK_KEYWORD = "magic walk"  # case-insensitive match on event title/description
 
@@ -28,11 +31,11 @@ def fetch_calendar(credentials) -> dict:
     """
     service = build("calendar", "v3", credentials=credentials)
 
-    # Use local system timezone so midnight is correct for the user's location
-    local_tz = datetime.datetime.now().astimezone().tzinfo
-    today = datetime.date.today()
-    time_min = datetime.datetime.combine(today, datetime.time.min, tzinfo=local_tz).isoformat()
-    time_max = datetime.datetime.combine(today, datetime.time.max, tzinfo=local_tz).isoformat()
+    # Use Pacific Time explicitly — the system timezone is UTC on GitHub Actions,
+    # which would cause late-evening PT events to bleed into the next day's window.
+    today = datetime.datetime.now(TIMEZONE).date()
+    time_min = datetime.datetime.combine(today, datetime.time.min, tzinfo=TIMEZONE).isoformat()
+    time_max = datetime.datetime.combine(today, datetime.time.max, tzinfo=TIMEZONE).isoformat()
 
     result = (
         service.events()
