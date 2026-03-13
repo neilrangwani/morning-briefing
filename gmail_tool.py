@@ -23,7 +23,8 @@ DEFAULT_INTEREST = (
     "AI company news and funding. Skip ads, sponsored content, and anything unrelated to AI."
 )
 
-BRIEFED_LABEL_NAME = "Briefed"
+BRIEFED_LABEL_NAME = "Briefing"
+NEWSLETTER_LABEL_NAME = "Newsletter"
 
 
 def _decode_part(part: dict) -> str:
@@ -82,17 +83,17 @@ def _parse_sender_name(from_header: str) -> str:
     return from_header.strip()
 
 
-def _get_or_create_briefed_label(service) -> str:
-    """Return the label ID for BRIEFED_LABEL_NAME, creating it if it doesn't exist."""
+def _get_or_create_label(service, name: str) -> str:
+    """Return the label ID for the given name, creating it if it doesn't exist."""
     labels = service.users().labels().list(userId="me").execute().get("labels", [])
     for label in labels:
-        if label["name"].lower() == BRIEFED_LABEL_NAME.lower():
+        if label["name"].lower() == name.lower():
             return label["id"]
 
     new_label = (
         service.users()
         .labels()
-        .create(userId="me", body={"name": BRIEFED_LABEL_NAME})
+        .create(userId="me", body={"name": name})
         .execute()
     )
     return new_label["id"]
@@ -100,9 +101,9 @@ def _get_or_create_briefed_label(service) -> str:
 
 def fetch_newsletters(credentials) -> list[dict]:
     """
-    Fetch emails labeled "Newsletter" but not "Briefed" from the last 36 hours.
+    Fetch emails labeled "Newsletter" but not "Briefing" from the last 36 hours.
 
-    The 36-hour window is a safety net; the "Briefed" label is the primary
+    The 36-hour window is a safety net; the "Briefing" label is the primary
     deduplication mechanism.
 
     Args:
@@ -160,18 +161,22 @@ def fetch_newsletters(credentials) -> list[dict]:
 
 
 def mark_newsletters_briefed(credentials, newsletters: list[dict]) -> None:
-    """Apply the 'Briefed' label to all fetched newsletters."""
+    """Move newsletters to 'Briefing': add Briefing label, remove from inbox + Newsletter."""
     if not newsletters:
         return
 
     service = build("gmail", "v1", credentials=credentials)
-    label_id = _get_or_create_briefed_label(service)
+    briefing_label_id = _get_or_create_label(service, BRIEFED_LABEL_NAME)
+    newsletter_label_id = _get_or_create_label(service, NEWSLETTER_LABEL_NAME)
 
     for nl in newsletters:
         service.users().messages().modify(
             userId="me",
             id=nl["message_id"],
-            body={"addLabelIds": [label_id]},
+            body={
+                "addLabelIds": [briefing_label_id],
+                "removeLabelIds": ["INBOX", newsletter_label_id],
+            },
         ).execute()
 
 
