@@ -23,7 +23,7 @@ DEFAULT_INTEREST = (
     "AI company news and funding. Skip ads, sponsored content, and anything unrelated to AI."
 )
 
-BRIEFED_LABEL_NAME = "Briefing"
+BRIEFED_LABEL_NAME = "Briefed"
 NEWSLETTER_LABEL_NAME = "Newsletter"
 
 
@@ -101,9 +101,9 @@ def _get_or_create_label(service, name: str) -> str:
 
 def fetch_newsletters(credentials) -> list[dict]:
     """
-    Fetch emails labeled "Newsletter" but not "Briefing" from the last 36 hours.
+    Fetch emails labeled "Newsletter" but not "Briefed" from the last 36 hours.
 
-    The 36-hour window is a safety net; the "Briefing" label is the primary
+    The 36-hour window is a safety net; the "Briefed" label is the primary
     deduplication mechanism.
 
     Args:
@@ -161,7 +161,7 @@ def fetch_newsletters(credentials) -> list[dict]:
 
 
 def mark_newsletters_briefed(credentials, newsletters: list[dict]) -> None:
-    """Move newsletters to 'Briefing': add Briefing label, remove from inbox + Newsletter."""
+    """Move newsletters to 'Briefed': add Briefed label, remove from inbox + Newsletter."""
     if not newsletters:
         return
 
