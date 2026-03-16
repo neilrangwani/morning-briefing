@@ -14,7 +14,7 @@ from googleapiclient.discovery import build
 
 # Maximum characters of email body to pass to Claude per newsletter.
 # Haiku has a 200k token context window; 25000 chars ≈ ~6000 tokens.
-MAX_BODY_CHARS = 25000
+MAX_BODY_CHARS = 15000
 
 DEFAULT_INTEREST = (
     "Filter and summarize content relevant to someone who: (1) wants to use AI tools at work "

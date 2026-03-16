@@ -238,7 +238,7 @@ def synthesize(context: str) -> str:
     client = anthropic.Anthropic(api_key=api_key)
     message = client.messages.create(
         model=CLAUDE_MODEL,
-        max_tokens=4096,
+        max_tokens=8192,
         system=SYSTEM_PROMPT,
         messages=[
             {
