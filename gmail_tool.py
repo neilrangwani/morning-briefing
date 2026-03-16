@@ -121,7 +121,7 @@ def fetch_newsletters(credentials) -> list[dict]:
     result = (
         service.users()
         .messages()
-        .list(userId="me", q=query, maxResults=100)
+        .list(userId="me", q=query, maxResults=10)
         .execute()
     )
     messages = result.get("messages", [])
