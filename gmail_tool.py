@@ -23,8 +23,8 @@ DEFAULT_INTEREST = (
     "AI company news and funding. Skip ads, sponsored content, and anything unrelated to AI."
 )
 
-BRIEFED_LABEL_NAME = "Briefed"
-NEWSLETTER_LABEL_NAME = "Newsletter"
+BRIEFED_LABEL_NAME = "Projects/Briefed"
+NEWSLETTER_LABEL_NAME = "Projects/Newsletter"
 
 
 def _decode_part(part: dict) -> str:
@@ -116,7 +116,7 @@ def fetch_newsletters(credentials) -> list[dict]:
 
     since = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=36)
     since_ts = int(since.timestamp())
-    query = f"label:Newsletter -label:{BRIEFED_LABEL_NAME} after:{since_ts}"
+    query = f"label:{NEWSLETTER_LABEL_NAME} -label:{BRIEFED_LABEL_NAME} after:{since_ts}"
 
     result = (
         service.users()
