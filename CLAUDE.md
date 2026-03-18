@@ -27,9 +27,17 @@ python main.py --dry-run  # mock data, no API calls
 | `weather_tool.py` | IP geolocation (ipapi.co with ip-api.com fallback) + Open-Meteo |
 
 ## Newsletter Config
-`gmail_tool.py` fetches all emails with the Gmail label **"Newsletter"** from the last 24 hours.
-To include a newsletter, just label it "Newsletter" in Gmail — no code changes needed.
-The default summarization prompt is in `DEFAULT_INTEREST` at the top of `gmail_tool.py`.
+`gmail_tool.py` fetches up to **10** emails from the Gmail label **"Projects/Newsletter"** from the last 36 hours that haven't already been labeled **"Projects/Briefed"**.
+
+To include a newsletter, label it **"Projects/Newsletter"** in Gmail — no code changes needed.
+After a briefing runs, processed emails are moved to **"Projects/Briefed"** to prevent re-processing.
+
+Each newsletter body is capped at **15,000 characters** before being passed to Claude.
+
+Summarization rules (in `SYSTEM_PROMPT` in `main.py`):
+- **All newsletters**: summarize all editorial content; skip ads and sponsored content
+- **Axios Pro Rata**: only include deals involving AI companies; skip all non-AI deals
+- AI-related content is highlighted across all newsletters
 
 ## Magic Walk Detection
 `gcal_tool.py` scans for `"magic walk"` (case-insensitive) in event title or description.

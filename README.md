@@ -31,7 +31,7 @@ Lenny's Newsletter
 ## How it works
 
 1. **Auth** — OAuth 2.0 flow authenticates once; token refreshes automatically on every run
-2. **Fetch** — pulls today's calendar events, scans Gmail for newsletters from the last 24 hours, and gets a live weather forecast via Open-Meteo
+2. **Fetch** — pulls today's calendar events, scans Gmail for up to 10 unprocessed newsletters from the last 36 hours (labeled "Projects/Newsletter", not yet in "Projects/Briefed"), and gets a live weather forecast via Open-Meteo
 3. **Synthesize** — structured data is passed to Claude Haiku with a custom system prompt; Claude extracts only what's relevant for each source (e.g. "VC deals involving AI companies only" for Axios Pro Rata)
 4. **Output** — formatted briefing prints to terminal; scheduled via cron or GitHub Actions
 
@@ -40,7 +40,7 @@ Lenny's Newsletter
 | Layer | Technology |
 |---|---|
 | Language | Python 3.10+ |
-| AI synthesis | Anthropic Claude Haiku (`claude-haiku-4-5`) |
+| AI synthesis | Anthropic Claude Haiku (`claude-haiku-4-5-20251001`) |
 | Email | Gmail API (OAuth 2.0, read-only) |
 | Calendar | Google Calendar API (OAuth 2.0, read-only) |
 | Weather | Open-Meteo API (free, no key) |
@@ -117,17 +117,16 @@ Uses hardcoded mock data and still calls Claude — useful for testing the promp
 
 ## Customizing newsletters
 
-Edit the `NEWSLETTERS` list in `gmail_tool.py`. Each entry controls what gets fetched and how Claude should summarize it:
+No code changes needed to add or remove newsletters. Just apply the **"Projects/Newsletter"** Gmail label to any email — it will be picked up on the next run.
 
-```python
-{
-    "name": "Display name",
-    "from_match": ["keyword in From header"],  # OR logic, case-insensitive
-    "subject_match": ["keyword in Subject"],   # OR logic; omit to skip
-    "interest": "What to extract — passed directly to Claude as an instruction",
-    "include_links": False,  # True = Claude includes URLs in output
-}
-```
+After each run, processed emails are moved to **"Projects/Briefed"** automatically so they won't appear again.
+
+**Summarization behavior** (controlled via `SYSTEM_PROMPT` in `main.py`):
+- All newsletters: full editorial content is summarized; ads and sponsored content are skipped
+- **Axios Pro Rata**: only VC/PE/M&A deals involving AI companies are extracted; non-AI deals are skipped
+- AI-related content is highlighted across all newsletters
+
+To change summarization rules, edit the newsletter filtering section of `SYSTEM_PROMPT` in `main.py`.
 
 ---
 
