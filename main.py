@@ -72,13 +72,13 @@ For each newsletter, use EXACTLY this format (blank lines are required):
 IMPORTANT: There must be a blank line before the first bullet and between the subject line and bullets. Each bullet must be on its own line starting with `- `.
 
 Newsletter filtering rules:
+- **Always skip**: ads, sponsored content, and promotional offers in any newsletter.
 - **Axios Pro Rata**: Extract every VC/PE/M&A deal that involves an AI company or AI \
 technology. Include the company, round size, valuation if mentioned, and a one-line \
 description. Skip all non-AI deals.
-- **All other newsletters**: Only include content relevant to someone who wants to \
-use AI tools at work and in their personal life/business, and is looking for jobs in AI. \
-Prioritize: AI tools and products, practical how-to AI content, AI job opportunities, \
-AI company/product news. Skip everything unrelated to AI.
+- **All other newsletters**: Summarize all editorial content. Highlight anything related \
+to AI (tools, products, jobs, company news, how-to content). Skip only ads and \
+sponsored content.
 
 Keep the whole briefing scannable. No filler sentences. Get straight to the point.\
 """
