@@ -65,9 +65,13 @@ For each newsletter, use EXACTLY this format (blank lines are required):
 
 **"[Email Subject]"**
 
-- First bullet point
-- Second bullet point
-- Third bullet point
+- First bullet point (one sentence max)
+- Second bullet point (one sentence max)
+- Third bullet point (one sentence max)
+
+Limit each newsletter to 7 bullets max. Each bullet must be one sentence, no more than \
+15 words. Ruthlessly prioritize — only the most newsworthy, non-redundant points. The \
+entire briefing must fit within 8192 output tokens, so be aggressive about cutting filler.
 
 IMPORTANT: There must be a blank line before the first bullet and between the subject line and bullets. Each bullet must be on its own line starting with `- `.
 
@@ -76,6 +80,8 @@ Newsletter filtering rules:
 - **Axios Pro Rata**: Extract every VC/PE/M&A deal that involves an AI company or AI \
 technology. Include the company, round size, valuation if mentioned, and a one-line \
 description. Skip all non-AI deals.
+- **Axios San Francisco**: Summarize all editorial content as a regular local news briefing. \
+Highlight anything AI-related, but do not skip non-AI content.
 - **All other newsletters**: Summarize all editorial content. Highlight anything related \
 to AI (tools, products, jobs, company news, how-to content). Skip only ads and \
 sponsored content.
