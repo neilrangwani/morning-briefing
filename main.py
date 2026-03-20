@@ -17,6 +17,7 @@ from pathlib import Path
 
 import anthropic
 from dotenv import load_dotenv
+from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -154,8 +155,11 @@ def get_google_credentials() -> Credentials:
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
+            try:
+                creds.refresh(Request())
+            except RefreshError:
+                creds = None
+        if not creds:
             if not CREDENTIALS_PATH.exists():
                 print(
                     "\nERROR: credentials.json not found.\n"
