@@ -69,8 +69,30 @@ def _get_forecast(latitude: float, longitude: float) -> dict:
     return resp.json()
 
 
+def _geocode_zip(zip_code: str) -> Optional[dict]:
+    """Geocode a US zip code to lat/lon using zippopotam.us (free, no key)."""
+    try:
+        resp = requests.get(
+            f"https://api.zippopotam.us/us/{zip_code}",
+            timeout=10,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        place = data["places"][0]
+        return {
+            "latitude": float(place["latitude"]),
+            "longitude": float(place["longitude"]),
+            "city": place["place name"],
+            "region": place["state"],
+        }
+    except Exception:
+        return None
+
+
 def _geocode_city(city: str) -> Optional[dict]:
-    """Geocode a city name to lat/lon using Open-Meteo geocoding (free, no key)."""
+    """Geocode a city name or US zip code to lat/lon."""
+    if city.strip().isdigit() and len(city.strip()) == 5:
+        return _geocode_zip(city.strip())
     try:
         resp = requests.get(
             "https://geocoding-api.open-meteo.com/v1/search",
