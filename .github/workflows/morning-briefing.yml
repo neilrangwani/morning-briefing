@@ -2,10 +2,10 @@ name: Morning Briefing
 
 on:
   schedule:
-    # 9:00 AM Pacific Time
-    # UTC-7 (DST, Mar–Nov): "0 16 * * *"  ← current
-    # UTC-8 (standard, Nov–Mar): "0 17 * * *"
-    - cron: "0 16 * * *"
+    # 8:00 AM Pacific Time
+    # UTC-7 (DST, Mar–Nov): "0 15 * * *"  ← current
+    # UTC-8 (standard, Nov–Mar): "0 16 * * *"
+    - cron: "0 15 * * *"
   workflow_dispatch: # also allow manual runs from the GitHub Actions tab
 
 jobs:
@@ -39,3 +39,4 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           TO_EMAIL: ${{ secrets.TO_EMAIL }}
+          CURRENT_LOCATION: ${{ vars.CURRENT_LOCATION }}

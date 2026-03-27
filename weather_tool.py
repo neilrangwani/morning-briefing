@@ -5,6 +5,8 @@ Fetches today's weather forecast using IP-based geolocation + Open-Meteo API.
 No API keys required.
 """
 
+from typing import Optional
+
 import requests
 
 # WMO Weather interpretation code → human-readable string
@@ -65,6 +67,47 @@ def _get_forecast(latitude: float, longitude: float) -> dict:
     )
     resp.raise_for_status()
     return resp.json()
+
+
+def _geocode_city(city: str) -> Optional[dict]:
+    """Geocode a city name to lat/lon using Open-Meteo geocoding (free, no key)."""
+    try:
+        resp = requests.get(
+            "https://geocoding-api.open-meteo.com/v1/search",
+            params={"name": city, "count": 1, "language": "en", "format": "json"},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        results = resp.json().get("results", [])
+        if not results:
+            return None
+        r = results[0]
+        return {
+            "latitude": r["latitude"],
+            "longitude": r["longitude"],
+            "city": r.get("name", city),
+            "region": r.get("admin1", ""),
+        }
+    except Exception:
+        return None
+
+
+def fetch_weather_for_city(city: str) -> dict:
+    """Fetch weather for a given city name (geocodes automatically, falls back to SF)."""
+    loc = _geocode_city(city) or LOCATION
+    raw = _get_forecast(loc["latitude"], loc["longitude"])
+    current = raw["current_weather"]
+    daily = raw["daily"]
+    code = daily["weathercode"][0]
+    return {
+        "city": loc["city"],
+        "region": loc["region"],
+        "current_temp_f": round(current["temperature"]),
+        "high_f": round(daily["temperature_2m_max"][0]),
+        "low_f": round(daily["temperature_2m_min"][0]),
+        "precip_pct": daily["precipitation_probability_max"][0],
+        "conditions": WMO_CODES.get(code, f"Conditions (code {code})"),
+    }
 
 
 def fetch_weather() -> dict:

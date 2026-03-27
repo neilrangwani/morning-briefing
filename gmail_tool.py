@@ -160,6 +160,174 @@ def fetch_newsletters(credentials) -> list[dict]:
     return found
 
 
+INBOX_HOURS = 24  # look-back window for non-newsletter inbox emails
+
+
+def list_newsletters_metadata(credentials) -> list[dict]:
+    """
+    List available newsletters (sender, subject, message ID) without fetching bodies.
+    Used by the agent to decide which emails to read.
+    """
+    service = build("gmail", "v1", credentials=credentials)
+
+    since = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=36)
+    since_ts = int(since.timestamp())
+    query = f"label:{NEWSLETTER_LABEL_NAME} -label:{BRIEFED_LABEL_NAME} after:{since_ts}"
+
+    result = (
+        service.users()
+        .messages()
+        .list(userId="me", q=query, maxResults=10)
+        .execute()
+    )
+    messages = result.get("messages", [])
+
+    found = []
+    for msg_stub in messages:
+        msg = (
+            service.users()
+            .messages()
+            .get(
+                userId="me",
+                id=msg_stub["id"],
+                format="metadata",
+                metadataHeaders=["From", "Subject"],
+            )
+            .execute()
+        )
+        headers = {
+            h["name"]: h["value"]
+            for h in msg.get("payload", {}).get("headers", [])
+        }
+        found.append(
+            {
+                "message_id": msg_stub["id"],
+                "name": _parse_sender_name(headers.get("From", "")),
+                "subject": headers.get("Subject", ""),
+            }
+        )
+    return found
+
+
+def fetch_email_body_by_id(credentials, message_id: str) -> str:
+    """Fetch the full text body of an email by its message ID."""
+    service = build("gmail", "v1", credentials=credentials)
+    msg = (
+        service.users()
+        .messages()
+        .get(userId="me", id=message_id, format="full")
+        .execute()
+    )
+    body = _extract_text(msg.get("payload", {}))
+    return " ".join(body.split())[:MAX_BODY_CHARS]
+
+
+def list_inbox_emails(credentials) -> list[dict]:
+    """
+    List recent inbox emails that are not newsletters.
+    Returns list of {message_id, from_name, subject, snippet}.
+    """
+    service = build("gmail", "v1", credentials=credentials)
+
+    since = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=INBOX_HOURS)
+    since_ts = int(since.timestamp())
+    query = (
+        f"in:inbox -label:{NEWSLETTER_LABEL_NAME} -label:{BRIEFED_LABEL_NAME} "
+        f"-category:promotions -category:updates after:{since_ts}"
+    )
+
+    result = (
+        service.users()
+        .messages()
+        .list(userId="me", q=query, maxResults=10)
+        .execute()
+    )
+    messages = result.get("messages", [])
+
+    found = []
+    for msg_stub in messages:
+        msg = (
+            service.users()
+            .messages()
+            .get(
+                userId="me",
+                id=msg_stub["id"],
+                format="metadata",
+                metadataHeaders=["From", "Subject"],
+            )
+            .execute()
+        )
+        headers = {
+            h["name"]: h["value"]
+            for h in msg.get("payload", {}).get("headers", [])
+        }
+        found.append(
+            {
+                "message_id": msg_stub["id"],
+                "from_name": _parse_sender_name(headers.get("From", "")),
+                "subject": headers.get("Subject", ""),
+                "snippet": msg.get("snippet", "")[:200],
+            }
+        )
+    return found
+
+
+def create_draft_reply(credentials, message_id: str, body: str) -> str:
+    """
+    Create a Gmail draft reply to the given message.
+    Returns a human-readable status string.
+    """
+    import base64 as _b64
+    from email.mime.text import MIMEText
+
+    service = build("gmail", "v1", credentials=credentials)
+
+    # Fetch original for threading headers
+    original = (
+        service.users()
+        .messages()
+        .get(
+            userId="me",
+            id=message_id,
+            format="metadata",
+            metadataHeaders=["Subject", "From", "Message-ID", "References"],
+        )
+        .execute()
+    )
+    headers = {
+        h["name"]: h["value"]
+        for h in original.get("payload", {}).get("headers", [])
+    }
+    thread_id = original["threadId"]
+
+    subject = headers.get("Subject", "")
+    if not subject.lower().startswith("re:"):
+        subject = f"Re: {subject}"
+
+    orig_msg_id = headers.get("Message-ID", "")
+    orig_refs = headers.get("References", "")
+    references = f"{orig_refs} {orig_msg_id}".strip()
+
+    msg = MIMEText(body, "plain")
+    msg["To"] = headers.get("From", "")
+    msg["Subject"] = subject
+    msg["In-Reply-To"] = orig_msg_id
+    msg["References"] = references
+
+    raw = _b64.urlsafe_b64encode(msg.as_bytes()).decode("utf-8")
+
+    draft = (
+        service.users()
+        .drafts()
+        .create(
+            userId="me",
+            body={"message": {"raw": raw, "threadId": thread_id}},
+        )
+        .execute()
+    )
+    return f"Draft saved (id: {draft['id']})"
+
+
 def mark_newsletters_briefed(credentials, newsletters: list[dict]) -> None:
     """Move newsletters to 'Briefed': add Briefed label, remove from inbox + Newsletter."""
     if not newsletters:
