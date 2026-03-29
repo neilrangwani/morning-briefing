@@ -336,6 +336,13 @@ def get_google_credentials() -> Credentials:
             except RefreshError:
                 creds = None
         if not creds:
+            if os.environ.get("GITHUB_ACTIONS"):
+                print(
+                    "\nERROR: Google token is missing or expired and cannot be refreshed in CI.\n"
+                    "Re-run the OAuth flow locally (python main.py) and update the GOOGLE_TOKEN_JSON secret.\n",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
             if not CREDENTIALS_PATH.exists():
                 print(
                     "\nERROR: credentials.json not found.\n"
