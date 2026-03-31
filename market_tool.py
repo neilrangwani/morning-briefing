@@ -1,24 +1,13 @@
 """
 market_tool.py
 
-Fetches S&P 500 current price and 1-day percentage change using the
-Yahoo Finance unofficial chart API. No API key required.
+Fetches S&P 500 current price and 1-day percentage change using yfinance.
+No API key required.
 """
 
-import requests
+import yfinance as yf
 
-YF_BASE = "https://query1.finance.yahoo.com/v8/finance/chart"
 SYMBOL = "^GSPC"
-REQUEST_TIMEOUT = 10
-
-# Yahoo Finance blocks generic Python user-agents; mimic a browser.
-HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/120.0.0.0 Safari/537.36"
-    )
-}
 
 
 def fetch_market() -> dict:
@@ -35,18 +24,10 @@ def fetch_market() -> dict:
     On error, returns a dict with an "error" key instead.
     """
     try:
-        resp = requests.get(
-            f"{YF_BASE}/{SYMBOL}",
-            params={"interval": "1d", "range": "2d"},
-            headers=HEADERS,
-            timeout=REQUEST_TIMEOUT,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-
-        meta = data["chart"]["result"][0]["meta"]
-        price = meta["regularMarketPrice"]
-        prev_close = meta["chartPreviousClose"]
+        ticker = yf.Ticker(SYMBOL)
+        info = ticker.fast_info
+        price = info.last_price
+        prev_close = info.previous_close
 
         if prev_close and prev_close != 0:
             change_pct = round((price - prev_close) / prev_close * 100, 2)

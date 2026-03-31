@@ -37,6 +37,7 @@ Each newsletter body is capped at **15,000 characters** before being passed to C
 Summarization rules (in `SYSTEM_PROMPT` in `main.py`):
 - **All newsletters**: summarize all editorial content; skip ads and sponsored content
 - **Axios Pro Rata**: only include deals involving AI companies; skip all non-AI deals
+- **Axios San Francisco**: full local news summary; AI content highlighted but non-AI content included
 - AI-related content is highlighted across all newsletters
 
 ## Magic Walk Detection
