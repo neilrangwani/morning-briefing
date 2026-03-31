@@ -36,6 +36,9 @@ from gmail_tool import (
     list_newsletters_metadata,
     mark_newsletters_briefed,
 )
+from hn_tool import fetch_hn_top
+from market_tool import fetch_market
+from news_tool import fetch_local_news
 from nyt_tool import fetch_nyt_headlines
 from weather_tool import fetch_weather, fetch_weather_for_city, format_weather
 
@@ -145,6 +148,45 @@ TOOLS = [
         ),
         "input_schema": {"type": "object", "properties": {}, "required": []},
     },
+    {
+        "name": "get_local_news",
+        "description": (
+            "Get hyper-local San Francisco news from SFGate and Mission Local RSS feeds. "
+            "Call this to surface neighborhood-level SF stories not covered by national outlets."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "zip_code": {
+                    "type": "string",
+                    "description": "Neil's current zip code, e.g. '94117'",
+                }
+            },
+            "required": ["zip_code"],
+        },
+    },
+    {
+        "name": "get_hn_top",
+        "description": (
+            "Fetch top Hacker News stories filtered for AI and tech relevance. "
+            "Returns the highest-scoring stories matching AI, ML, startups, or developer topics."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "n": {
+                    "type": "integer",
+                    "description": "Number of stories to return (default 5, max 10)",
+                }
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "get_market",
+        "description": "Get the S&P 500 current price and 1-day percentage change.",
+        "input_schema": {"type": "object", "properties": {}, "required": []},
+    },
 ]
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -167,6 +209,9 @@ it may warrant a personal reply, call fetch_email_body to read it fully first. T
 call create_draft_reply only if the full content confirms a reply makes sense. Skip \
 automated emails, notifications, and anything promotional.
 5. Call get_nyt_headlines and filter for stories about AI, San Francisco, or the economy.
+6. Call get_local_news with Neil's current zip code for SF neighborhood news.
+7. Call get_hn_top for top Hacker News AI/tech stories.
+8. Call get_market for the S&P 500 daily move.
 
 FORMAT — produce the briefing in Markdown using exactly this structure:
 
@@ -205,6 +250,24 @@ Up to 7 bullets covering AI, San Francisco, and economy stories. Skip anything \
 not relevant to those three topics.
 
 - [CATEGORY] Headline or one-sentence summary
+
+# 🏙 SF Local News
+
+Up to 5 bullets. Lead with any stories touching Neil's neighborhood \
+(94117 / Inner Sunset / Cole Valley / Haight). Include source in brackets.
+
+- [Source] One-sentence summary
+
+# 💻 Hacker News
+
+Up to 5 items. Include score and comment count.
+
+- **Title** — score: N, comments: N
+
+# 📈 Markets
+
+One line: S&P 500 price and 1-day move. Add one sentence of context if the \
+move is notable (>1% either direction).
 
 # 📝 Draft Replies Queued
 
@@ -444,6 +507,41 @@ def execute_tool(
                 for h in headlines
             ]
             return "\n".join(lines)
+
+        elif name == "get_local_news":
+            zip_code = tool_input.get("zip_code", "94117")
+            stories = fetch_local_news(zip_code)
+            if not stories:
+                return "No local news available."
+            lines = [
+                f"{i+1}. [{s['source']}] {s['title']}"
+                + (f"\n   {s['url']}" if s["url"] else "")
+                for i, s in enumerate(stories)
+            ]
+            return "\n".join(lines)
+
+        elif name == "get_hn_top":
+            n = int(tool_input.get("n", 5))
+            n = max(1, min(n, 10))
+            stories = fetch_hn_top(n)
+            if not stories:
+                return "No relevant HN stories found."
+            lines = [
+                f"{i+1}. {s['title']} (score: {s['score']}, comments: {s['comments']})\n   {s['url']}"
+                for i, s in enumerate(stories)
+            ]
+            return "\n".join(lines)
+
+        elif name == "get_market":
+            result = fetch_market()
+            if "error" in result:
+                return f"Market data unavailable: {result['error']}"
+            arrow = "▲" if result["direction"] == "up" else "▼"
+            sign = "+" if result["change_pct"] >= 0 else ""
+            return (
+                f"S&P 500 (^GSPC): {result['price']:,.2f}  "
+                f"{arrow} {sign}{result['change_pct']}% today"
+            )
 
         else:
             return f"Unknown tool: {name}"
