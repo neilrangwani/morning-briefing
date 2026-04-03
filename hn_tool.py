@@ -10,7 +10,7 @@ import concurrent.futures
 
 import requests
 
-HN_BASE = "https://hacker-news.firebaseio.com/v1"
+HN_BASE = "https://hacker-news.firebaseio.com/v0"
 CANDIDATE_COUNT = 60   # pull this many top IDs before filtering
 REQUEST_TIMEOUT = 8
 
