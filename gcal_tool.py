@@ -10,17 +10,19 @@ import zoneinfo
 
 from googleapiclient.discovery import build
 
-TIMEZONE = zoneinfo.ZoneInfo("America/Los_Angeles")
-
 MAGIC_WALK_KEYWORD = "magic walk"  # case-insensitive match on event title/description
 
+DEFAULT_TIMEZONE = "America/Los_Angeles"
 
-def fetch_calendar(credentials) -> dict:
+
+def fetch_calendar(credentials, timezone: str = DEFAULT_TIMEZONE) -> dict:
     """
     Fetch today's events from Google Calendar (primary calendar).
 
     Args:
         credentials: Google OAuth2 credentials object (built in main.py)
+        timezone: IANA timezone name for the user's current location (e.g. "America/Chicago").
+                  Used to compute today's date window and display event times in local time.
 
     Returns:
         {
@@ -31,11 +33,12 @@ def fetch_calendar(credentials) -> dict:
     """
     service = build("calendar", "v3", credentials=credentials)
 
-    # Use Pacific Time explicitly — the system timezone is UTC on GitHub Actions,
-    # which would cause late-evening PT events to bleed into the next day's window.
-    today = datetime.datetime.now(TIMEZONE).date()
-    time_min = datetime.datetime.combine(today, datetime.time.min, tzinfo=TIMEZONE).isoformat()
-    time_max = datetime.datetime.combine(today, datetime.time.max, tzinfo=TIMEZONE).isoformat()
+    # Use the user's local timezone — the system timezone is UTC on GitHub Actions,
+    # which would cause events to display in the wrong timezone.
+    tz = zoneinfo.ZoneInfo(timezone)
+    today = datetime.datetime.now(tz).date()
+    time_min = datetime.datetime.combine(today, datetime.time.min, tzinfo=tz).isoformat()
+    time_max = datetime.datetime.combine(today, datetime.time.max, tzinfo=tz).isoformat()
 
     result = (
         service.events()
@@ -43,6 +46,7 @@ def fetch_calendar(credentials) -> dict:
             calendarId="primary",
             timeMin=time_min,
             timeMax=time_max,
+            timeZone=timezone,
             singleEvents=True,
             orderBy="startTime",
         )
@@ -63,7 +67,8 @@ def fetch_calendar(credentials) -> dict:
         start = event.get("start", {})
         if "dateTime" in start:
             dt = datetime.datetime.fromisoformat(start["dateTime"])
-            time_str = dt.strftime("%-I:%M %p")
+            dt_local = dt.astimezone(tz)
+            time_str = dt_local.strftime("%-I:%M %p")
         else:
             time_str = "All day"
 
