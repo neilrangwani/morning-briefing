@@ -71,9 +71,18 @@ TOOLS = [
         "name": "get_calendar",
         "description": (
             "Get today's calendar events including titles, times, and locations. "
-            "Call this first to determine where Neil will be today."
+            "Pass the timezone from get_weather so event times display in Neil's current local time."
         ),
-        "input_schema": {"type": "object", "properties": {}, "required": []},
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "timezone": {
+                    "type": "string",
+                    "description": "IANA timezone name from get_weather, e.g. 'America/Chicago'.",
+                }
+            },
+            "required": [],
+        },
     },
     {
         "name": "get_weather",
@@ -201,8 +210,9 @@ IMPORTANT: Output ONLY the briefing itself — no preamble, no "here is your bri
 no transitional commentary. Start directly with the first Markdown heading.
 
 GATHERING DATA — follow these steps in order:
-1. Call get_calendar to see today's schedule.
-2. The user message includes Neil's current location. Use that for get_weather. \
+1. Call get_weather with Neil's current location (from the user message). \
+Note the Timezone field in the response — you will need it for step 2.
+2. Call get_calendar with the timezone from step 1 so event times display in Neil's local time. \
 If a calendar event is in a different city, fetch weather for that city too.
 3. Call list_newsletters, then call fetch_email_body for each one to read it.
 4. Call list_inbox_emails. For any email that looks like it warrants a personal reply, \
@@ -447,7 +457,8 @@ def execute_tool(
     """
     try:
         if name == "get_calendar":
-            cal = fetch_calendar(creds)
+            timezone = tool_input.get("timezone", "America/Los_Angeles")
+            cal = fetch_calendar(creds, timezone)
             if not cal["events"]:
                 return "No events scheduled today."
             lines = []
@@ -465,6 +476,7 @@ def execute_tool(
             w = fetch_weather_for_city(city)
             return (
                 f"Location: {w['city']}, {w['region']}\n"
+                f"Timezone: {w['timezone']}\n"
                 f"Current: {w['current_temp_f']}°F — {w['conditions']}\n"
                 f"High: {w['high_f']}°F  |  Low: {w['low_f']}°F\n"
                 f"Precipitation chance: {w['precip_pct']}%"

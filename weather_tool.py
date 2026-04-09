@@ -124,6 +124,7 @@ def fetch_weather_for_city(city: str) -> dict:
     return {
         "city": loc["city"],
         "region": loc["region"],
+        "timezone": raw.get("timezone", "America/Los_Angeles"),
         "current_temp_f": round(current["temperature"]),
         "high_f": round(daily["temperature_2m_max"][0]),
         "low_f": round(daily["temperature_2m_min"][0]),
