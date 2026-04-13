@@ -40,3 +40,19 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           TO_EMAIL: ${{ secrets.TO_EMAIL }}
           CURRENT_LOCATION: ${{ vars.CURRENT_LOCATION }}
+
+      - name: Persist refreshed Google token to secrets
+        if: always()
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "⚠ GH_PAT secret not set — skipping token persistence"
+            exit 0
+          fi
+          if [ ! -f token.json ]; then
+            echo "⚠ token.json not found — skipping"
+            exit 0
+          fi
+          gh secret set GOOGLE_TOKEN_JSON --repo "$GITHUB_REPOSITORY" < token.json
+          echo "✓ Google token secret updated"
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
