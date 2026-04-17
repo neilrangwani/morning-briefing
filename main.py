@@ -38,8 +38,6 @@ from gmail_tool import (
 )
 from hn_tool import fetch_hn_top
 from market_tool import fetch_market
-from news_tool import fetch_local_news
-from nyt_tool import fetch_nyt_headlines
 from weather_tool import fetch_weather, fetch_weather_for_city, format_weather
 
 load_dotenv()
@@ -150,31 +148,6 @@ TOOLS = [
         },
     },
     {
-        "name": "get_nyt_headlines",
-        "description": (
-            "Get today's New York Times headlines from technology, business, and US news feeds. "
-            "Filter for stories relevant to San Francisco, the economy, and AI."
-        ),
-        "input_schema": {"type": "object", "properties": {}, "required": []},
-    },
-    {
-        "name": "get_local_news",
-        "description": (
-            "Get hyper-local San Francisco news from SFGate and Mission Local RSS feeds. "
-            "Call this to surface neighborhood-level SF stories not covered by national outlets."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "zip_code": {
-                    "type": "string",
-                    "description": "Neil's current zip code, e.g. '94117'",
-                }
-            },
-            "required": ["zip_code"],
-        },
-    },
-    {
         "name": "get_hn_top",
         "description": (
             "Fetch top Hacker News stories filtered for AI and tech relevance. "
@@ -193,7 +166,10 @@ TOOLS = [
     },
     {
         "name": "get_market",
-        "description": "Get the S&P 500 current price and 1-day percentage change.",
+        "description": (
+            "Get S&P 500 performance: always returns the prior market day's full-day change. "
+            "Also returns today's intraday move if the market has opened today."
+        ),
         "input_schema": {"type": "object", "properties": {}, "required": []},
     },
 ]
@@ -214,14 +190,12 @@ GATHERING DATA — follow these steps in order:
 Note the Timezone field in the response — you will need it for step 2.
 2. Call get_calendar with the timezone from step 1 so event times display in Neil's local time. \
 If a calendar event is in a different city, fetch weather for that city too.
-3. Call list_newsletters, then call fetch_email_body for each one to read it.
-4. Call list_inbox_emails. For any email that looks like it warrants a personal reply, \
+3. Call get_market for S&P 500 data.
+4. Call list_newsletters, then call fetch_email_body for each one to read it.
+5. Call list_inbox_emails. For any email that looks like it warrants a personal reply, \
 call fetch_email_body first, then create_draft_reply only if the full content confirms it. \
 Skip automated emails, notifications, and anything promotional.
-5. Call get_nyt_headlines and filter for AI, San Francisco, or economy stories.
-6. Call get_local_news with Neil's current zip code.
-7. Call get_hn_top for top Hacker News stories.
-8. Call get_market for the S&P 500 daily move.
+6. Call get_hn_top for top Hacker News stories.
 
 FORMAT — output Markdown using exactly this structure:
 
@@ -234,6 +208,12 @@ One or two sentences on what to expect today.
 
 Each event on its own line. Dog walk events: `- 🐾 **HH:MM PM — Event Title**`
 
+# 📈 Markets
+
+Show the prior market day's close and change: "S&P 500 — [Date]: [Price] ([±X%])". \
+If today's market is also available AND the move is >1% (either direction), add a \
+second line: "Today so far: [Price] ([±X%])". Omit the today line if the move is ≤1%.
+
 # 📬 Newsletter Highlights
 
 For each newsletter use EXACTLY this format:
@@ -245,7 +225,7 @@ For each newsletter use EXACTLY this format:
 - Bullet (one sentence, 15 words max)
 
 Only include bullets that are genuinely newsworthy — skip anything routine, \
-promotional, or already covered in NYT/HN. Aim for 3–5 bullets per newsletter; \
+promotional, or already covered in HN. Aim for 3–5 bullets per newsletter; \
 use fewer if the newsletter has little of value. Omit a newsletter entirely if \
 there is nothing worth surfacing.
 
@@ -255,29 +235,11 @@ Newsletter rules:
 - Axios San Francisco: business and big politics stories only; skip fluff and lifestyle.
 - All others: only genuinely notable items; highlight AI content.
 
-# 📰 From The New York Times
-
-Up to 5 bullets. AI, San Francisco, and economy only. Skip anything else.
-
-- [CATEGORY] One-sentence summary
-
-# 🏙 SF Local News
-
-Up to 5 bullets. Business and major politics stories only — skip lifestyle, \
-events, and fluff. Prioritize anything touching 94117 / Inner Sunset / \
-Cole Valley / Haight. Omit this section if nothing newsworthy.
-
-- [Source] One-sentence summary
-
 # 💻 Hacker News
 
-Up to 5 items. Skip anything you've already covered in newsletters or NYT.
+Up to 5 items. Skip anything you've already covered in newsletters.
 
 - **Title** — score: N, comments: N
-
-# 📈 Markets
-
-One line: S&P 500 price and 1-day move. One sentence of context only if move >1%.
 
 # 📝 Draft Replies Queued
 
@@ -509,29 +471,6 @@ def execute_tool(
         elif name == "create_draft_reply":
             return create_draft_reply(creds, tool_input["message_id"], tool_input["body"])
 
-        elif name == "get_nyt_headlines":
-            headlines = fetch_nyt_headlines()
-            if not headlines:
-                return "No NYT headlines available."
-            lines = [
-                f"[{h['category'].upper()}] {h['title']}"
-                + (f"\n  {h['description']}" if h["description"] else "")
-                for h in headlines
-            ]
-            return "\n".join(lines)
-
-        elif name == "get_local_news":
-            zip_code = tool_input.get("zip_code", "94117")
-            stories = fetch_local_news(zip_code)
-            if not stories:
-                return "No local news available."
-            lines = [
-                f"{i+1}. [{s['source']}] {s['title']}"
-                + (f"\n   {s['url']}" if s["url"] else "")
-                for i, s in enumerate(stories)
-            ]
-            return "\n".join(lines)
-
         elif name == "get_hn_top":
             n = int(tool_input.get("n", 5))
             n = max(1, min(n, 10))
@@ -548,12 +487,22 @@ def execute_tool(
             result = fetch_market()
             if "error" in result:
                 return f"Market data unavailable: {result['error']}"
-            arrow = "▲" if result["direction"] == "up" else "▼"
-            sign = "+" if result["change_pct"] >= 0 else ""
-            return (
-                f"S&P 500 (^GSPC): {result['price']:,.2f}  "
-                f"{arrow} {sign}{result['change_pct']}% today"
-            )
+            prior = result["prior_day"]
+            p_arrow = "▲" if prior["direction"] == "up" else "▼"
+            p_sign = "+" if prior["change_pct"] >= 0 else ""
+            lines = [
+                f"S&P 500 — {prior['date']}: {prior['close']:,.2f}  "
+                f"{p_arrow} {p_sign}{prior['change_pct']}%"
+            ]
+            today = result.get("today")
+            if today and abs(today["change_pct"]) > 1:
+                t_arrow = "▲" if today["direction"] == "up" else "▼"
+                t_sign = "+" if today["change_pct"] >= 0 else ""
+                lines.append(
+                    f"Today so far: {today['price']:,.2f}  "
+                    f"{t_arrow} {t_sign}{today['change_pct']}%"
+                )
+            return "\n".join(lines)
 
         else:
             return f"Unknown tool: {name}"
